@@ -1,20 +1,20 @@
 /**
  * Bird Counting & Weight Estimation — v2.0.0
+ * Binary WebSocket (no Base64 → 33% less bandwidth, no CPU encoding overhead)
  * Modes: Browser Webcam | RTSP/IP Camera | Offline Video Upload
- * Transport: WebSocket (live) · REST fetch (upload)
  */
 
 const API_BASE = window.location.origin;
 const WS_BASE  = API_BASE.replace(/^http/, "ws");
 
-// ── shared chart ───────────────────────────────────────────────────────────────
+// ── shared Chart.js instance ───────────────────────────────────────────────────
 let _chart = null;
 
 function makeChart(canvasId) {
-  const ctx = document.getElementById(canvasId);
-  if (!ctx) return;
+  const el = document.getElementById(canvasId);
+  if (!el) return;
   if (_chart) { _chart.destroy(); _chart = null; }
-  _chart = new Chart(ctx.getContext("2d"), {
+  _chart = new Chart(el.getContext("2d"), {
     type: "line",
     data: {
       labels: [],
@@ -52,13 +52,13 @@ function pushChart(countsOverTime) {
     _chart.data.labels.shift();
     _chart.data.datasets[0].data.shift();
   }
-  _chart.update();
+  _chart.update("none");  // "none" skips animation = lower CPU
 }
 
 function setChartStatic(countsOverTime) {
   if (!_chart) return;
-  _chart.data.labels   = countsOverTime.map(d => `${d.time_sec}s`);
-  _chart.data.datasets[0].data = countsOverTime.map(d => d.count);
+  _chart.data.labels              = countsOverTime.map(d => `${d.time_sec}s`);
+  _chart.data.datasets[0].data   = countsOverTime.map(d => d.count);
   _chart.update();
 }
 
@@ -74,9 +74,9 @@ function applyStats(stats, prefix) {
   setText(p + "statCurrent", stats.current_detections ?? "—");
   setText(p + "statElapsed", stats.elapsed_sec != null ? stats.elapsed_sec + "s" : "—");
   const w = stats.weight_estimation;
-  setText(p + "statAvg", w ? w.average_grams + " g" : "—");
-  setText(p + "statMin", w ? w.min_grams     + " g" : "—");
-  setText(p + "statMax", w ? w.max_grams     + " g" : "—");
+  setText(p + "statAvg",    w ? w.average_grams + " g" : "—");
+  setText(p + "statMin",    w ? w.min_grams     + " g" : "—");
+  setText(p + "statMax",    w ? w.max_grams     + " g" : "—");
   pushChart(stats.counts_over_time);
 }
 
@@ -91,24 +91,20 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TAB 1 — BROWSER WEBCAM
+// TAB 1 — BROWSER WEBCAM  (binary WebSocket — no Base64)
 // ══════════════════════════════════════════════════════════════════════════════
 {
-  let ws      = null;
-  let stream  = null;
-  let rafId   = null;
-  let frameN  = 0;
-  const SKIP  = 3;
-
+  let ws         = null;
+  let stream     = null;
+  let capturing  = false;
   const rawVideo = document.getElementById("webcamVideo");
   const canvas   = document.getElementById("liveCanvas");
   const ctx2d    = canvas.getContext("2d");
-  const offscreen   = document.createElement("canvas");
-  const offCtx      = offscreen.getContext("2d");
+  const capture  = document.createElement("canvas");
+  const captCtx  = capture.getContext("2d");
 
   document.getElementById("btnStartWebcam").addEventListener("click", async () => {
     setWcStatus("Requesting camera…", false);
-
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
       rawVideo.srcObject = stream;
@@ -119,30 +115,35 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     }
 
     ws = new WebSocket(WS_BASE + "/ws/live");
+    ws.binaryType = "blob";
 
     ws.onopen = () => {
       setWcStatus("Connected — streaming…", true);
       makeChart("webcamChart");
-      frameN = 0;
-      sendFrameLoop();
+      capturing = true;
+      sendLoop();
     };
 
-    ws.onerror = () => setWcStatus("WebSocket error", false);
-    ws.onclose = () => setWcStatus("Disconnected", false);
+    ws.onerror   = () => setWcStatus("WebSocket error", false);
+    ws.onclose   = () => { capturing = false; setWcStatus("Disconnected", false); };
 
     ws.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "frame") {
+      if (e.data instanceof Blob) {
+        // Binary frame — draw on canvas
+        const url = URL.createObjectURL(e.data);
         const img = new Image();
         img.onload = () => {
           canvas.width  = img.width;
           canvas.height = img.height;
           ctx2d.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);   // free memory immediately
         };
-        img.src = "data:image/jpeg;base64," + msg.data;
-        applyStats(msg.stats, "");
-      } else if (msg.type === "error") {
-        setWcStatus("Error: " + msg.message, false);
+        img.src = url;
+      } else {
+        // Text stats JSON
+        const msg = JSON.parse(e.data);
+        if (msg.type === "stats")       applyStats(msg.stats, "");
+        else if (msg.type === "error")  setWcStatus("Error: " + msg.message, false);
       }
     };
 
@@ -151,7 +152,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   });
 
   document.getElementById("btnStopWebcam").addEventListener("click", () => {
-    cancelAnimationFrame(rafId);
+    capturing = false;
     if (ws) { ws.send(JSON.stringify({ action: "stop" })); ws.close(); ws = null; }
     if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
     ctx2d.clearRect(0, 0, canvas.width, canvas.height);
@@ -160,40 +161,35 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     document.getElementById("btnStopWebcam").classList.add("hidden");
   });
 
-  function sendFrameLoop() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    frameN++;
-    if (frameN % SKIP !== 0) {
-      rafId = requestAnimationFrame(sendFrameLoop);
-      return;
-    }
+  /**
+   * sendLoop — captures frames and sends as binary JPEG blobs.
+   * Uses a self-scheduling approach: sends next frame only after
+   * toBlob() completes, implementing natural backpressure.
+   */
+  function sendLoop() {
+    if (!capturing || !ws || ws.readyState !== WebSocket.OPEN) return;
 
     const vw = rawVideo.videoWidth;
     const vh = rawVideo.videoHeight;
-    if (!vw || !vh) { rafId = requestAnimationFrame(sendFrameLoop); return; }
+    if (!vw || !vh) { setTimeout(sendLoop, 100); return; }
 
-    offscreen.width  = 640;
-    offscreen.height = Math.round(vh * 640 / vw);
-    offCtx.drawImage(rawVideo, 0, 0, offscreen.width, offscreen.height);
+    // Resize to 480px wide to keep bandwidth low
+    capture.width  = 480;
+    capture.height = Math.round(vh * 480 / vw);
+    captCtx.drawImage(rawVideo, 0, 0, capture.width, capture.height);
 
-    offscreen.toBlob(blob => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const b64 = reader.result.split(",")[1];
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ action: "frame", data: b64 }));
-        }
-        rafId = requestAnimationFrame(sendFrameLoop);
-      };
-      reader.readAsDataURL(blob);
-    }, "image/jpeg", 0.7);
+    capture.toBlob(blob => {
+      if (ws && ws.readyState === WebSocket.OPEN && blob) {
+        ws.send(blob);   // send raw binary JPEG — no Base64 needed
+      }
+      // Schedule next frame only after this one is sent
+      if (capturing) requestAnimationFrame(sendLoop);
+    }, "image/jpeg", 0.65);
   }
 
   function setWcStatus(msg, live) {
     const el = document.getElementById("webcamStatus");
-    el.innerHTML = live
-      ? `<span class="pulse-dot mr-2"></span>${msg}`
-      : msg;
+    el.innerHTML = live ? `<span class="pulse-dot mr-2"></span>${msg}` : msg;
   }
 }
 
@@ -209,6 +205,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 
     setRtspStatus("Connecting…", false);
     ws = new WebSocket(WS_BASE + "/ws/live");
+    ws.binaryType = "blob";
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ action: "start_rtsp", url }));
@@ -219,15 +216,16 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     };
 
     ws.onmessage = e => {
-      const msg = JSON.parse(e.data);
-      if (msg.type === "frame") {
-        const imgEl = document.getElementById("rtspImg");
-        imgEl.src = "data:image/jpeg;base64," + msg.data;
-        applyStats(msg.stats, "r");
-      } else if (msg.type === "error") {
-        setRtspStatus("Error: " + msg.message, false);
-      } else if (msg.type === "stopped") {
-        setRtspStatus("Stream ended", false);
+      if (e.data instanceof Blob) {
+        const url = URL.createObjectURL(e.data);
+        const img = document.getElementById("rtspImg");
+        img.onload = () => URL.revokeObjectURL(url);
+        img.src    = url;
+      } else {
+        const msg = JSON.parse(e.data);
+        if (msg.type === "stats")       applyStats(msg.stats, "r");
+        else if (msg.type === "error")  setRtspStatus("Error: " + msg.message, false);
+        else if (msg.type === "stopped") setRtspStatus("Stream ended", false);
       }
     };
 
@@ -244,9 +242,7 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
 
   function setRtspStatus(msg, live) {
     const el = document.getElementById("rtspStatus");
-    el.innerHTML = live
-      ? `<span class="pulse-dot mr-2"></span>${msg}`
-      : msg;
+    el.innerHTML = live ? `<span class="pulse-dot mr-2"></span>${msg}` : msg;
   }
 }
 
@@ -257,13 +253,15 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
   const fileInput = document.getElementById("videoFile");
   const dropZone  = document.getElementById("dropZone");
   const fileLabel = document.getElementById("fileNameDisplay");
-  let progTimer   = null;
+  let   progTimer = null;
 
-  // drag-and-drop
+  // File selection display
   fileInput.addEventListener("change", () => {
     fileLabel.textContent = fileInput.files[0]?.name ?? "Click or drag a video here";
     dropZone.classList.toggle("drag-over", !!fileInput.files.length);
   });
+
+  // Drag and drop
   ["dragenter","dragover","dragleave","drop"].forEach(ev =>
     dropZone.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); })
   );
@@ -280,10 +278,10 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     if (f.length) { fileInput.files = f; fileInput.dispatchEvent(new Event("change")); }
   });
 
-  // form submit
+  // Form submit
   document.getElementById("uploadForm").addEventListener("submit", async e => {
     e.preventDefault();
-    if (!fileInput.files.length) { showUploadError("Select a video file first."); return; }
+    if (!fileInput.files.length) { showUploadError("Please select a video file first."); return; }
 
     const btn = document.getElementById("analyzeBtn");
     btn.disabled = true;
@@ -295,11 +293,18 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     try {
       const fd  = new FormData();
       fd.append("file", fileInput.files[0]);
-      const res = await fetch(API_BASE + "/analyze-video", { method: "POST", body: fd });
+
+      const res = await fetch(API_BASE + "/analyze-video", {
+        method: "POST",
+        body: fd,
+      });
+
       if (!res.ok) {
-        const d = await res.json().catch(() => ({ detail: "Unknown server error" }));
-        throw new Error(d.detail || "Server error");
+        let detail = "Unknown server error";
+        try { detail = (await res.json()).detail || detail; } catch(_) {}
+        throw new Error(detail);
       }
+
       const data = await res.json();
       renderUploadResults(data);
     } catch (err) {
@@ -315,11 +320,11 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     let pct = 0;
     clearInterval(progTimer);
     progTimer = setInterval(() => {
-      pct = Math.min(pct + Math.random() * 3, 90);
+      pct = Math.min(pct + Math.random() * 2.5, 90);
       document.getElementById("uploadProgressBar").style.width = pct + "%";
       document.getElementById("uploadProgressText").textContent =
         "Processing… " + Math.round(pct) + "%";
-    }, 500);
+    }, 600);
   }
 
   function renderUploadResults(data) {
@@ -337,17 +342,18 @@ document.querySelectorAll(".tab-btn").forEach(btn => {
     setText("upMin", w ? w.min_grams     + " g" : "N/A");
     setText("upMax", w ? w.max_grams     + " g" : "N/A");
 
+    // Video player — force reload for new result
     const videoUrl = API_BASE + data.annotated_video + "?t=" + Date.now();
     const vid = document.getElementById("resultVideo");
     vid.src = videoUrl;
-    const srcEl = document.getElementById("resultVideoSrc");
-    if (srcEl) { srcEl.src = videoUrl; }
     vid.load();
-    document.getElementById("dlBtn").href = videoUrl;
-    document.getElementById("dlBtn").setAttribute("download", "annotated_video.mp4");
+
+    const dlBtn = document.getElementById("dlBtn");
+    dlBtn.href = videoUrl;
+    dlBtn.setAttribute("download", "annotated_video.mp4");
 
     makeChart("uploadChart");
-    setChartStatic(data.counts_over_time);
+    setChartStatic(data.counts_over_time || []);
 
     const tbody = document.getElementById("tracksBody");
     tbody.innerHTML = (data.tracks_sample || []).map(t =>

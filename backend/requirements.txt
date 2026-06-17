@@ -1,8 +1,14 @@
+# Core ML
 ultralytics>=8.0.0
+lap>=0.5.12
+
+# Computer Vision
 opencv-python-headless>=4.8.0
+numpy>=1.24.0
+
+# Web Framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 websockets>=12.0
-numpy>=1.24.0
-pydantic>=2.0.0
 python-multipart>=0.0.6
+pydantic>=2.0.0
