@@ -74,6 +74,14 @@ def serve_css():
     return FileResponse(str(f), media_type="text/css")
 
 
+@app.get("/tailwind.css", include_in_schema=False)
+def serve_tailwind():
+    f = STATIC / "tailwind.css"
+    if not f.exists():
+        raise HTTPException(404, "tailwind.css missing")
+    return FileResponse(str(f), media_type="text/css")
+
+
 # ── health ─────────────────────────────────────────────────────────────────────
 @app.get("/health", tags=["meta"])
 def health():
