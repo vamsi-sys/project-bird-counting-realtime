@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bird Counting & Weight Estimation</title>
 
-  <!-- ① Pre-compiled Tailwind CSS — no runtime JS, no main-thread blocking -->
+  <!-- Pre-compiled Tailwind CSS — no runtime JS blocking -->
   <link rel="stylesheet" href="/tailwind.css" />
-  <!-- ② Custom animations -->
+  <!-- Custom animations -->
   <link rel="stylesheet" href="/styles.css" />
-  <!-- ③ Font Awesome — deferred so it never blocks render -->
-  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" /></noscript>
+  <!-- Font Awesome — loaded normally, small enough not to block LCP -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 
 <body class="bg-gray-50 text-gray-800 font-sans min-h-screen flex flex-col">
@@ -70,7 +71,8 @@
             <span id="webcamStatus" class="text-sm text-gray-500">Not started</span>
           </div>
           <video id="webcamVideo" autoplay playsinline muted class="hidden"></video>
-          <canvas id="liveCanvas" width="640" height="360" class="w-full rounded-xl bg-black" style="max-height:420px"></canvas>
+          <canvas id="liveCanvas" width="640" height="360"
+                  class="w-full rounded-xl bg-black" style="max-height:420px"></canvas>
           <div class="flex gap-3">
             <button id="btnStartWebcam"
                     class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-2.5 rounded-xl transition-all">
@@ -105,9 +107,12 @@
           <div class="bg-white rounded-xl shadow p-4">
             <p class="text-xs font-semibold text-gray-400 uppercase mb-2">Weight Range</p>
             <div class="flex justify-around text-center">
-              <div><p class="text-xs text-gray-400">Min</p><p class="font-bold text-gray-800" id="statMin">—</p></div>
-              <div><p class="text-xs text-gray-400">Avg</p><p class="font-bold text-blue-600" id="statAvgMid">—</p></div>
-              <div><p class="text-xs text-gray-400">Max</p><p class="font-bold text-gray-800" id="statMax">—</p></div>
+              <div><p class="text-xs text-gray-400">Min</p>
+                   <p class="font-bold text-gray-800" id="statMin">—</p></div>
+              <div><p class="text-xs text-gray-400">Avg</p>
+                   <p class="font-bold text-blue-600" id="statAvgMid">—</p></div>
+              <div><p class="text-xs text-gray-400">Max</p>
+                   <p class="font-bold text-gray-800" id="statMax">—</p></div>
             </div>
           </div>
           <div class="bg-white rounded-xl shadow p-4">
@@ -131,10 +136,14 @@
           </div>
           <input id="rtspUrl" type="text"
                  placeholder="rtsp://username:password@192.168.1.100:554/stream"
-                 class="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
-          <p class="text-xs text-gray-400">Example: <code>rtsp://admin:pass@192.168.1.100:554/stream1</code></p>
+                 class="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm
+                        focus:outline-none focus:ring-2 focus:ring-blue-400" />
+          <p class="text-xs text-gray-400">
+            Example: <code>rtsp://admin:pass@192.168.1.100:554/stream1</code>
+          </p>
           <img id="rtspImg" src="" alt="RTSP feed"
-               class="w-full object-contain bg-black rounded-xl" style="min-height:200px;max-height:380px;" />
+               class="w-full object-contain bg-black rounded-xl"
+               style="min-height:200px;max-height:380px;" />
           <div class="flex gap-3">
             <button id="btnConnectRTSP"
                     class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition-all">
@@ -146,7 +155,8 @@
             </button>
           </div>
           <div class="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded text-xs text-yellow-800">
-            <strong>Note:</strong> The backend opens RTSP streams directly. Camera must be reachable from the server, not the browser.
+            <strong>Note:</strong> The backend opens RTSP streams directly. Camera must be
+            reachable from the server, not the browser.
           </div>
         </div>
 
@@ -172,9 +182,12 @@
           <div class="bg-white rounded-xl shadow p-4">
             <p class="text-xs font-semibold text-gray-400 uppercase mb-2">Weight Range</p>
             <div class="flex justify-around text-center">
-              <div><p class="text-xs text-gray-400">Min</p><p class="font-bold text-gray-800" id="rstatMin">—</p></div>
-              <div><p class="text-xs text-gray-400">Avg</p><p class="font-bold text-blue-600" id="rstatAvgMid">—</p></div>
-              <div><p class="text-xs text-gray-400">Max</p><p class="font-bold text-gray-800" id="rstatMax">—</p></div>
+              <div><p class="text-xs text-gray-400">Min</p>
+                   <p class="font-bold text-gray-800" id="rstatMin">—</p></div>
+              <div><p class="text-xs text-gray-400">Avg</p>
+                   <p class="font-bold text-blue-600" id="rstatAvgMid">—</p></div>
+              <div><p class="text-xs text-gray-400">Max</p>
+                   <p class="font-bold text-gray-800" id="rstatMax">—</p></div>
             </div>
           </div>
           <div class="bg-white rounded-xl shadow p-4">
@@ -199,7 +212,9 @@
             <input type="file" id="videoFile" name="file" accept=".mp4,.avi,.mov,.mkv"
                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" required />
             <i class="fa-solid fa-cloud-arrow-up text-5xl text-blue-400 mb-3"></i>
-            <p class="text-base font-medium text-gray-600" id="fileNameDisplay">Click or drag a video here</p>
+            <p class="text-base font-medium text-gray-600" id="fileNameDisplay">
+              Click or drag a video here
+            </p>
             <p class="text-sm text-gray-400 mt-1">Supports .mp4 · .avi · .mov · .mkv</p>
           </div>
           <button id="analyzeBtn" type="submit"
@@ -213,7 +228,8 @@
           <div class="spinner mx-auto"></div>
           <p class="font-semibold text-gray-700" id="uploadProgressText">Processing…</p>
           <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div id="uploadProgressBar" class="bg-blue-500 h-2.5 rounded-full" style="width:0%"></div>
+            <div id="uploadProgressBar" class="bg-blue-500 h-2.5 rounded-full"
+                 style="width:0%"></div>
           </div>
           <p class="text-xs text-gray-400">Large videos may take a few minutes on CPU.</p>
         </div>
@@ -273,9 +289,12 @@
               <canvas id="uploadChart"></canvas>
             </div>
             <div class="mt-4 pt-4 border-t grid grid-cols-3 text-center gap-2">
-              <div><p class="text-xs text-gray-400">Min</p><p class="font-bold text-gray-800" id="upMin">—</p></div>
-              <div><p class="text-xs text-gray-400">Avg</p><p class="font-bold text-blue-600" id="upAvgMid">—</p></div>
-              <div><p class="text-xs text-gray-400">Max</p><p class="font-bold text-gray-800" id="upMax">—</p></div>
+              <div><p class="text-xs text-gray-400">Min</p>
+                   <p class="font-bold text-gray-800" id="upMin">—</p></div>
+              <div><p class="text-xs text-gray-400">Avg</p>
+                   <p class="font-bold text-blue-600" id="upAvgMid">—</p></div>
+              <div><p class="text-xs text-gray-400">Max</p>
+                   <p class="font-bold text-gray-800" id="upMax">—</p></div>
             </div>
           </div>
         </div>
@@ -308,8 +327,8 @@
     </div>
   </footer>
 
-  <!-- Chart.js and app.js deferred — never block render -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
-  <script src="/app.js" defer></script>
+  <!-- Scripts at end of body — never block HTML rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>

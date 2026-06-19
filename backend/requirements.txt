@@ -1,14 +1,13 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# CPU-only PyTorch (latest available for Python 3.13)
+# CPU-only PyTorch for Python 3.13
 torch==2.5.1+cpu
-torchvision==0.20.1+cpu
 
-# ONNX runtime for lightweight inference
+# ONNX runtime for lightweight inference (this is the actual inference engine)
 onnxruntime>=1.18.0
 onnx>=1.16.0
 
-# YOLOv8
+# YOLOv8 (used for tracking utilities only, not inference)
 ultralytics>=8.0.0
 lap>=0.5.12
 
