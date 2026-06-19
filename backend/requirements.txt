@@ -1,12 +1,22 @@
-# Core ML
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# CPU-only PyTorch — ~500MB smaller than default CUDA build
+torch==2.3.1+cpu
+torchvision==0.18.1+cpu
+
+# ONNX runtime for lightweight inference (no GPU needed at all)
+onnxruntime>=1.18.0
+onnx>=1.16.0
+
+# YOLOv8 — tracking utilities
 ultralytics>=8.0.0
 lap>=0.5.12
 
-# Computer Vision
+# Computer vision
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
 
-# Web Framework
+# Web framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 websockets>=12.0
