@@ -1,19 +1,12 @@
---extra-index-url https://download.pytorch.org/whl/cpu
-
-# CPU-only PyTorch for Python 3.13
-torch==2.5.1+cpu
-
-# ONNX runtime for lightweight inference (this is the actual inference engine)
+# ONNX runtime — the actual inference engine (~80MB RAM)
 onnxruntime>=1.18.0
-onnx>=1.16.0
-
-# YOLOv8 (used for tracking utilities only, not inference)
-ultralytics>=8.0.0
-lap>=0.5.12
 
 # Computer vision
 opencv-python-headless>=4.8.0
 numpy>=1.24.0
+
+# Tracking (pure Python, no heavy deps)
+scipy>=1.11.0
 
 # Web framework
 fastapi>=0.104.0
