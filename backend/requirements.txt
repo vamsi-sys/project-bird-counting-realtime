@@ -1,14 +1,14 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# CPU-only PyTorch — ~500MB smaller than default CUDA build
-torch==2.3.1+cpu
-torchvision==0.18.1+cpu
+# CPU-only PyTorch (latest available for Python 3.13)
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
 
-# ONNX runtime for lightweight inference (no GPU needed at all)
+# ONNX runtime for lightweight inference
 onnxruntime>=1.18.0
 onnx>=1.16.0
 
-# YOLOv8 — tracking utilities
+# YOLOv8
 ultralytics>=8.0.0
 lap>=0.5.12
 
