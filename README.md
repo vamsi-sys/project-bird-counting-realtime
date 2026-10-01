@@ -74,10 +74,29 @@ Annotated Frame + Stats
 
 ### YOLOv8's built-in .track() method
 
-YOLOv8's built-in `.track()` method assigns a **persistent unique ID** to each bird across frames. This means:
-- Even if a bird leaves and re-enters the frame, it gets the same ID
-- The system never double-counts the same bird
-- The "Unique Birds" counter only goes up, never down
+### Bird Tracking
+
+A hand-written IoU-based tracker (`_Tracker` in `detector.py`) assigns a persistent
+ID to each detected bird across frames, without using Ultralytics' `.track()`
+or any external tracking library. On every frame, it computes IoU
+(Intersection over Union) between each new detection and every currently
+active track, and matches a detection to whichever track has the highest
+IoU above a 0.3 threshold. If no existing track matches well enough, the
+detection is treated as a new bird and given a new ID. A track that goes
+unmatched for more than 8 consecutive frames is deleted, on the assumption
+the bird has left the frame.
+
+This means:
+
+* A bird that moves smoothly between frames keeps the same ID, since its
+  box still overlaps enough with its previous position
+* A bird that briefly leaves the frame and returns within ~8 frames keeps
+  its original ID
+* A bird that is gone for longer than 8 frames is treated as a new bird
+  on return, and gets a new ID — so the counter is not immune to long
+  occlusions
+* The "Unique Birds" counter counts distinct track IDs ever created, so it
+  only goes up, never down, during a session
 
 ### Weight Estimation
 
@@ -274,7 +293,7 @@ brew install ffmpeg
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/vamsi-sys/bird-counting-realtime.git
+git clone https://github.com/vamsi-sys/project-bird-counting-realtime.git
 cd bird-counting-realtime
 
 # 2. Create virtual environment
