@@ -8,17 +8,17 @@ A real-time computer vision web application that automatically **counts birds** 
 
 ## 🛠️ Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| **Language** | Python 3.13 |
-| **Backend Framework** | FastAPI |
-| **ML Model** | YOLOv8 Nano (Ultralytics) |
-| **Computer Vision** | OpenCV |
-| **Real-Time Streaming** | WebSocket |
-| **Video Re-encoding** | FFmpeg (H.264) |
-| **Frontend** | HTML5 · Tailwind CSS · Chart.js · Vanilla JS |
-| **Deployment** | Render.com (Docker) |
-
+| Layer                   | Technology                                        |
+| ------------------------ | -------------------------------------------------- |
+| **Language**             | Python 3.13                                        |
+| **Backend Framework**    | FastAPI                                            |
+| **ML Inference**         | ONNX Runtime (YOLOv8n exported to ONNX) — no PyTorch, no Ultralytics |
+| **Post-processing**      | Hand-written NMS (NumPy) + custom IoU tracker       |
+| **Computer Vision**      | OpenCV (headless)                                  |
+| **Real-Time Streaming**  | WebSocket                                          |
+| **Video Re-encoding**    | FFmpeg (H.264)                                     |
+| **Frontend**             | HTML5 · Tailwind CSS · Chart.js · Vanilla JS        |
+| **Deployment**           | Render.com (Docker), ~95MB RAM footprint           |
 ---
 
 ## 📁 Project Structure
@@ -72,7 +72,7 @@ Estimate weight        (bounding box area → grams)
 Annotated Frame + Stats
 ```
 
-### Bird Tracking
+### YOLOv8's built-in .track() method
 
 YOLOv8's built-in `.track()` method assigns a **persistent unique ID** to each bird across frames. This means:
 - Even if a bird leaves and re-enters the frame, it gets the same ID
